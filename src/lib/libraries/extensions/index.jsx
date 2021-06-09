@@ -46,6 +46,16 @@ import gdxforInsetIconURL from './gdxfor/gdxfor-small.svg';
 import gdxforConnectionIconURL from './gdxfor/gdxfor-illustration.svg';
 import gdxforConnectionSmallIconURL from './gdxfor/gdxfor-small.svg';
 
+
+import graphqlImage from './graphql/newblock.png';
+import graphqlButtonImage from './graphql/newblock-small.png';
+
+import newblockImage from './newblock/newblock.png';
+import newblockButtonImage from './newblock/newblock-small.png';
+
+import slackImage from './slack/slack.png';
+import slackButtonImage from './slack/slack-small.png';
+=======
 import twIcon from './tw/tw.svg';
 
 import customExtensionIcon from './custom/custom.svg';
@@ -359,5 +369,64 @@ export default [
             />
         ),
         featured: true
+    }
+,
+    {
+        name: 'GraphQLBlocks',
+        extensionId: 'graphqlblock',
+        collaborator: 'Me',
+        iconURL: graphqlImage,
+        insetIconURL: graphqlButtonImage,
+        description: (
+            <FormattedMessage
+                defaultMessage="GraphQL blocks."
+                description="graphql block"
+                id="gui.extension.graphql.description"
+            />
+        ),
+        featured: true,
+        disabled: false,
+        internetConnectionRequired: true,
+        bluetoothRequired: false,
+        helpLink: 'https://scratch.mit.edu/wedo'
+
+    }
+    ,
+    {
+        name: 'DeveloperSample',
+        extensionId: 'newblock',
+        collaborator: 'Me',
+        iconURL: newblockImage,
+        insetIconURL: newblockButtonImage,
+        description: (
+            <FormattedMessage
+                defaultMessage="Developer samples"
+                description="Block type sample for developing original block"
+                id="gui.extension.newblocks.description"
+            />
+        ),
+        featured: true,
+        disabled: false,
+        internetConnectionRequired: true,
+        bluetoothRequired: false
+    }
+    ,
+    {
+        name: 'Slack',
+        extensionId: 'slack',
+        collaborator: 'Me',
+        iconURL: slackImage,
+        insetIconURL: slackButtonImage,
+        description: (
+            <FormattedMessage
+                defaultMessage="Slack blocks"
+                description="Block type sample for slack"
+                id="gui.extension.slack.description"
+            />
+        ),
+        featured: true,
+        disabled: false,
+        internetConnectionRequired: true,
+        bluetoothRequired: false,
     }
 ];

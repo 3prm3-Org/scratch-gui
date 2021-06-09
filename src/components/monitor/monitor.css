@@ -4,7 +4,7 @@
 
 .monitor-container {
     position: absolute;
-    background: $ui-primary;
+    background: $ui-primary-light; /* tw: do not look different in dark mode */
     z-index: $z-index-monitor;
     border: 1px solid $ui-black-transparent;
     border-radius: calc($space / 2);
@@ -13,6 +13,7 @@
     transition: box-shadow 0.2s;
     pointer-events: all;
     overflow: hidden;
+    color: #575e75; /* tw: explicitly set color to match Scratch */
 }
 
 .monitor:hover {
@@ -43,6 +44,7 @@
     margin: 0 5px;
     border-radius: calc($space / 2);
     padding: 0 2px;
+    white-space: pre-wrap;
     transform: translateZ(0); /* Fixes flickering in Safari */
 }
 
@@ -53,6 +55,7 @@
     text-align: center;
     color: white;
     font-size: 1rem;
+    white-space: pre-wrap;
     transform: translateZ(0); /* Fixes flickering in Safari */
 }
 
@@ -78,12 +81,12 @@
     padding: 3px;
     font-size: 0.75rem;
     font-weight: bold;
-    color: $text-primary;
+    color: $text-primary-light; /* tw: do not look different in dark mode */
     width: 100%;
 }
 
 .list-body {
-    background: $ui-primary;
+    background: $ui-primary-light; /* tw: do not look different in dark mode */
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -103,7 +106,7 @@
 
 .list-index {
     font-weight: bold;
-    color: $text-primary;
+    color: $text-primary-light; /* tw: do not look different in dark mode */
     margin: 0 3px;
 }
 
@@ -126,7 +129,7 @@
     padding: 3px;
     font-size: 0.75rem;
     font-weight: bold;
-    color: $text-primary;
+    color: $text-primary-light; /* tw: do not look different in dark mode */
 }
 
 .list-empty {
@@ -149,7 +152,7 @@
     overflow: hidden; /* Don't let long values escape container */
     text-overflow: ellipsis;
     user-select: text; /* Allow selecting list values for 2.0 compatibility, only relevant in player */
-    white-space: nowrap;
+    white-space: pre;
 }
 
 .list-input {

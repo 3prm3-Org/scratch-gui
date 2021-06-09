@@ -29,7 +29,8 @@ class CloudProvider {
 
         // Send a message to the cloud server at a rate of no more
         // than 10 messages/sec.
-        this.sendCloudData = throttle(this._sendCloudData, 100);
+        // tw: we let cloud variables change at a greater rate
+        this.sendCloudData = throttle(this._sendCloudData, 50);
     }
 
     /**
@@ -40,7 +41,11 @@ class CloudProvider {
         this.connectionAttempts += 1;
 
         try {
-            this.connection = new WebSocket((location.protocol === 'http:' ? 'ws://' : 'wss://') + this.cloudHost);
+            // tw: only add ws:// or wss:// if it not already present in the cloudHost
+            if (!this.cloudHost || (!this.cloudHost.includes('ws://') && !this.cloudHost.includes('wss://'))) {
+                this.cloudHost = (location.protocol === 'http:' ? 'ws://' : 'wss://') + this.cloudHost;
+            }
+            this.connection = new WebSocket(this.cloudHost);
         } catch (e) {
             log.warn('Websocket support is not available in this browser', e);
             this.connection = null;
@@ -85,11 +90,20 @@ class CloudProvider {
         this.queuedData = [];
     }
 
-    onClose () {
+    onClose (e) {
+        // tw: code 4002 is "Username Error" -- do not try to reconnect
+        if (e && e.code === 4002) {
+            log.info('Cloud username is invalid. Not reconnecting.');
+            this.onInvalidUsername();
+            return;
+        }
         log.info(`Closed connection to websocket`);
         const randomizedTimeout = this.randomizeDuration(this.exponentialTimeout());
         this.setTimeout(this.openConnection.bind(this), randomizedTimeout);
     }
+
+    // tw: method called when username is invalid
+    onInvalidUsername () { /* no-op */ }
 
     exponentialTimeout () {
         return (Math.pow(2, Math.min(this.connectionAttempts, 5)) - 1) * 1000;

@@ -1,7 +1,9 @@
 import {BitmapAdapter} from 'scratch-svg-renderer';
-import log from './log.js';
 import randomizeSpritePosition from './randomize-sprite-position.js';
+import bmpConverter from './bmp-converter';
 import gifDecoder from './gif-decoder';
+import fixSVG from './tw-svg-fixer';
+import twStageSize from './tw-stage-size';
 
 /**
  * Extract the file name given a string of the form fileName + ext
@@ -104,12 +106,21 @@ const costumeUpload = function (fileData, fileType, storage, handleCostume, hand
     case 'image/svg+xml': {
         costumeFormat = storage.DataFormat.SVG;
         assetType = storage.AssetType.ImageVector;
+        fileData = fixSVG(fileData);
         break;
     }
     case 'image/jpeg': {
         costumeFormat = storage.DataFormat.JPG;
         assetType = storage.AssetType.ImageBitmap;
         break;
+    }
+    case 'image/bmp': {
+        // Convert .bmp files to .png to compress them. .bmps are completely uncompressed,
+        // and would otherwise take up a lot of storage space and take much longer to upload and download.
+        bmpConverter(fileData).then(dataUrl => {
+            costumeUpload(dataUrl, 'image/png', storage, handleCostume);
+        });
+        return; // Return early because we're triggering another proper costumeUpload
     }
     case 'image/png': {
         costumeFormat = storage.DataFormat.PNG;
@@ -134,6 +145,9 @@ const costumeUpload = function (fileData, fileType, storage, handleCostume, hand
     }
 
     const bitmapAdapter = new BitmapAdapter();
+    if (bitmapAdapter.setStageSize) {
+        bitmapAdapter.setStageSize(twStageSize.width, twStageSize.height);
+    }
     const addCostumeFromBuffer = function (dataBuffer) {
         const vmCostume = createVMAsset(
             storage,
@@ -162,12 +176,13 @@ const costumeUpload = function (fileData, fileType, storage, handleCostume, hand
  * @param {ArrayBuffer} fileData The sound data to load
  * @param {string} fileType The MIME type of this file; This function will exit
  * early if the fileType is unexpected.
-  * @param {ScratchStorage} storage The ScratchStorage instance to cache the sound data
+ * @param {ScratchStorage} storage The ScratchStorage instance to cache the sound data
  * @param {Function} handleSound The function to execute on the sound object of type VMAsset
  * This function should be responsible for adding the sound to the VM
  * as well as handling other UI flow that should come after adding the sound
+ * @param {Function} handleError The function to execute if there is an error parsing the sound
  */
-const soundUpload = function (fileData, fileType, storage, handleSound) {
+const soundUpload = function (fileData, fileType, storage, handleSound, handleError) {
     let soundFormat;
     switch (fileType) {
     case 'audio/mp3':
@@ -183,7 +198,7 @@ const soundUpload = function (fileData, fileType, storage, handleSound) {
         break;
     }
     default:
-        log.warn(`Encountered unexpected file type: ${fileType}`);
+        handleError(`Encountered unexpected file type: ${fileType}`);
         return;
     }
 
@@ -205,6 +220,7 @@ const spriteUpload = function (fileData, fileType, spriteName, storage, handleSp
     }
     case 'image/svg+xml':
     case 'image/png':
+    case 'image/bmp':
     case 'image/jpeg':
     case 'image/gif': {
         // Make a sprite from an image by making it a costume first

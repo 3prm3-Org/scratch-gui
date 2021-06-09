@@ -6,6 +6,7 @@ import {defineMessages, injectIntl, intlShape} from 'react-intl';
 import GreenFlag from '../green-flag/green-flag.jsx';
 import StopAll from '../stop-all/stop-all.jsx';
 import TurboMode from '../turbo-mode/turbo-mode.jsx';
+import FramerateIndicator from '../tw-framerate-indicator/framerate-indicator.jsx';
 
 import styles from './controls.css';
 
@@ -30,6 +31,8 @@ const Controls = function (props) {
         onGreenFlagClick,
         onStopAllClick,
         turbo,
+        framerate,
+        interpolation,
         ...componentProps
     } = props;
     return (
@@ -50,6 +53,10 @@ const Controls = function (props) {
             {turbo ? (
                 <TurboMode />
             ) : null}
+            <FramerateIndicator
+                framerate={framerate}
+                interpolation={interpolation}
+            />
         </div>
     );
 };
@@ -60,6 +67,8 @@ Controls.propTypes = {
     intl: intlShape.isRequired,
     onGreenFlagClick: PropTypes.func.isRequired,
     onStopAllClick: PropTypes.func.isRequired,
+    framerate: PropTypes.number,
+    interpolation: PropTypes.bool,
     turbo: PropTypes.bool
 };
 

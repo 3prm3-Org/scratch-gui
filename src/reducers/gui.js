@@ -23,8 +23,10 @@ import stageSizeReducer, {stageSizeInitialState} from './stage-size';
 import targetReducer, {targetsInitialState} from './targets';
 import timeoutReducer, {timeoutInitialState} from './timeout';
 import toolboxReducer, {toolboxInitialState} from './toolbox';
+import twReducer, {twInitialState} from './tw';
 import vmReducer, {vmInitialState} from './vm';
 import vmStatusReducer, {vmStatusInitialState} from './vm-status';
+import workspaceMetricsReducer, {workspaceMetricsInitialState} from './workspace-metrics';
 import throttle from 'redux-throttle';
 
 import decks from '../lib/libraries/decks/index.jsx';
@@ -56,8 +58,10 @@ const guiInitialState = {
     targets: targetsInitialState,
     timeout: timeoutInitialState,
     toolbox: toolboxInitialState,
+    tw: twInitialState,
     vm: vmInitialState,
-    vmStatus: vmStatusInitialState
+    vmStatus: vmStatusInitialState,
+    workspaceMetrics: workspaceMetricsInitialState
 };
 
 const initPlayer = function (currentState) {
@@ -65,6 +69,7 @@ const initPlayer = function (currentState) {
         {},
         currentState,
         {mode: {
+            isEmbedded: false,
             isFullScreen: currentState.mode.isFullScreen,
             isPlayerOnly: true,
             // When initializing in player mode, make sure to reset
@@ -78,6 +83,7 @@ const initFullScreen = function (currentState) {
         {},
         currentState,
         {mode: {
+            isEmbedded: false,
             isFullScreen: true,
             isPlayerOnly: currentState.mode.isPlayerOnly,
             hasEverEnteredEditor: currentState.mode.hasEverEnteredEditor
@@ -90,8 +96,9 @@ const initEmbedded = function (currentState) {
         {},
         currentState,
         {mode: {
-            showBranding: true,
-            isFullScreen: true,
+            isEmbedded: true,
+            // tw: embed does not need isFullScreen anymore
+            isFullScreen: false,
             isPlayerOnly: true,
             hasEverEnteredEditor: false
         }}
@@ -154,8 +161,10 @@ const guiReducer = combineReducers({
     targets: targetReducer,
     timeout: timeoutReducer,
     toolbox: toolboxReducer,
+    tw: twReducer,
     vm: vmReducer,
-    vmStatus: vmStatusReducer
+    vmStatus: vmStatusReducer,
+    workspaceMetrics: workspaceMetricsReducer
 });
 
 export {

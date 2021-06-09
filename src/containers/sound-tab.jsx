@@ -17,7 +17,7 @@ import RecordModal from './record-modal.jsx';
 import SoundEditor from './sound-editor.jsx';
 import SoundLibrary from './sound-library.jsx';
 
-import soundLibraryContent from '../lib/libraries/sounds.json';
+import {getSoundLibrary} from '../lib/libraries/tw-async-libraries';
 import {handleFileUpload, soundUpload} from '../lib/file-uploader.js';
 import errorBoundaryHOC from '../lib/error-boundary-hoc.jsx';
 import DragConstants from '../lib/drag-constants';
@@ -110,11 +110,12 @@ class SoundTab extends React.Component {
         this.setState({selectedSoundIndex: Math.max(sounds.length - 1, 0)});
     }
 
-    handleSurpriseSound () {
+    async handleSurpriseSound () {
+        const soundLibraryContent = await getSoundLibrary();
         const soundItem = soundLibraryContent[Math.floor(Math.random() * soundLibraryContent.length)];
         const vmSound = {
-            format: soundItem.format,
-            md5: soundItem.md5,
+            format: soundItem.dataFormat,
+            md5: soundItem.md5ext,
             rate: soundItem.rate,
             sampleCount: soundItem.sampleCount,
             name: soundItem.name
@@ -130,17 +131,18 @@ class SoundTab extends React.Component {
 
     handleSoundUpload (e) {
         const storage = this.props.vm.runtime.storage;
+        const targetId = this.props.vm.editingTarget.id;
         this.props.onShowImporting();
         handleFileUpload(e.target, (buffer, fileType, fileName, fileIndex, fileCount) => {
             soundUpload(buffer, fileType, storage, newSound => {
                 newSound.name = fileName;
-                this.props.vm.addSound(newSound).then(() => {
+                this.props.vm.addSound(newSound, targetId).then(() => {
                     this.handleNewSound();
                     if (fileIndex === fileCount - 1) {
                         this.props.onCloseImporting();
                     }
                 });
-            });
+            }, this.props.onCloseImporting);
         }, this.props.onCloseImporting);
     }
 

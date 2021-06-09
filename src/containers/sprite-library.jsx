@@ -4,7 +4,7 @@ import React from 'react';
 import {injectIntl, intlShape, defineMessages} from 'react-intl';
 import VM from 'scratch-vm';
 
-import spriteLibraryContent from '../lib/libraries/sprites.json';
+import {getSpriteLibrary} from '../lib/libraries/tw-async-libraries';
 import randomizeSpritePosition from '../lib/randomize-sprite-position';
 import spriteTags from '../lib/libraries/sprite-tags';
 
@@ -28,14 +28,14 @@ class SpriteLibrary extends React.PureComponent {
     handleItemSelect (item) {
         // Randomize position of library sprite
         randomizeSpritePosition(item);
-        this.props.vm.addSprite(JSON.stringify(item.json)).then(() => {
+        this.props.vm.addSprite(JSON.stringify(item)).then(() => {
             this.props.onActivateBlocksTab();
         });
     }
     render () {
         return (
             <LibraryComponent
-                data={spriteLibraryContent}
+                data={getSpriteLibrary()}
                 id="spriteLibrary"
                 tags={spriteTags}
                 title={this.props.intl.formatMessage(messages.libraryTitle)}

@@ -2,11 +2,6 @@ import {defineMessages} from 'react-intl';
 import sharedMessages from '../shared-messages';
 
 let messages = defineMessages({
-    meow: {
-        defaultMessage: 'Meow',
-        description: 'Name for the meow sound',
-        id: 'gui.defaultProject.meow'
-    },
     variable: {
         defaultMessage: 'my variable',
         description: 'Name for the default variable',
@@ -51,17 +46,7 @@ const projectData = translateFunction => {
                         rotationCenterY: 180
                     }
                 ],
-                sounds: [
-                    {
-                        assetId: '83a9787d4cb6f3b7632b4ddfebf74367',
-                        name: translator(messages.pop),
-                        dataFormat: 'wav',
-                        format: '',
-                        rate: 11025,
-                        sampleCount: 258,
-                        md5ext: '83a9787d4cb6f3b7632b4ddfebf74367.wav'
-                    }
-                ],
+                sounds: [],
                 volume: 100
             },
             {
@@ -71,38 +56,20 @@ const projectData = translateFunction => {
                 lists: {},
                 broadcasts: {},
                 blocks: {},
+                comments: {},
                 currentCostume: 0,
                 costumes: [
                     {
-                        assetId: 'b7853f557e4426412e64bb3da6531a99',
+                        assetId: 'b4ab6b3b69de1bc3ed6a94ace172a0b0',
                         name: translator(messages.costume, {index: 1}),
                         bitmapResolution: 1,
-                        md5ext: 'b7853f557e4426412e64bb3da6531a99.svg',
+                        md5ext: 'b4ab6b3b69de1bc3ed6a94ace172a0b0.svg',
                         dataFormat: 'svg',
-                        rotationCenterX: 48,
-                        rotationCenterY: 50
-                    },
-                    {
-                        assetId: 'e6ddc55a6ddd9cc9d84fe0b4c21e016f',
-                        name: translator(messages.costume, {index: 2}),
-                        bitmapResolution: 1,
-                        md5ext: 'e6ddc55a6ddd9cc9d84fe0b4c21e016f.svg',
-                        dataFormat: 'svg',
-                        rotationCenterX: 46,
-                        rotationCenterY: 53
+                        rotationCenterX: 44,
+                        rotationCenterY: 44
                     }
                 ],
-                sounds: [
-                    {
-                        assetId: '83c36d806dc92327b9e7049a565c6bff',
-                        name: translator(messages.meow),
-                        dataFormat: 'wav',
-                        format: '',
-                        rate: 22050,
-                        sampleCount: 18688,
-                        md5ext: '83c36d806dc92327b9e7049a565c6bff.wav'
-                    }
-                ],
+                sounds: [],
                 volume: 100,
                 visible: true,
                 x: 0,
@@ -116,7 +83,7 @@ const projectData = translateFunction => {
         meta: {
             semver: '3.0.0',
             vm: '0.1.0',
-            agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36' // eslint-disable-line max-len
+            agent: ''
         }
     });
 };

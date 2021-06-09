@@ -46,6 +46,7 @@ import gdxforInsetIconURL from './gdxfor/gdxfor-small.svg';
 import gdxforConnectionIconURL from './gdxfor/gdxfor-illustration.svg';
 import gdxforConnectionSmallIconURL from './gdxfor/gdxfor-small.svg';
 
+
 import graphqlImage from './graphql/newblock.png';
 import graphqlButtonImage from './graphql/newblock-small.png';
 
@@ -54,6 +55,10 @@ import newblockButtonImage from './newblock/newblock-small.png';
 
 import slackImage from './slack/slack.png';
 import slackButtonImage from './slack/slack-small.png';
+=======
+import twIcon from './tw/tw.svg';
+
+import customExtensionIcon from './custom/custom.svg';
 
 export default [
     {
@@ -326,6 +331,44 @@ export default [
             />
         ),
         helpLink: 'https://scratch.mit.edu/vernier'
+    },
+    {
+        name: (
+            <FormattedMessage
+                defaultMessage="TurboWarp Blocks"
+                description="Name of TW extension"
+                id="tw.twExtension.name"
+            />
+        ),
+        extensionId: 'tw',
+        iconURL: twIcon,
+        description: (
+            <FormattedMessage
+                defaultMessage="Weird new blocks. Not compatible with Scratch."
+                description="Description of TW extension"
+                id="tw.twExtension.description"
+            />
+        ),
+        featured: true
+    },
+    {
+        name: (
+            <FormattedMessage
+                defaultMessage="Custom Extension"
+                description="Name of custom extension category"
+                id="tw.customExtension.name"
+            />
+        ),
+        extensionId: '',
+        iconURL: customExtensionIcon,
+        description: (
+            <FormattedMessage
+                defaultMessage="Load custom extensions from URLs. For developers. Experimental."
+                description="Description of custom extension category"
+                id="tw.customExtension.description"
+            />
+        ),
+        featured: true
     }
 ,
     {

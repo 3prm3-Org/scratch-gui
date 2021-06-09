@@ -129,7 +129,7 @@ const alerts = [
         clearList: ['createSuccess', 'creating', 'createCopySuccess', 'creatingCopy',
             'createRemixSuccess', 'creatingRemix', 'saveSuccess', 'saving'],
         showDownload: true,
-        showSaveNow: true,
+        // showSaveNow: true,
         closeButton: false,
         content: (
             <FormattedMessage
@@ -143,7 +143,7 @@ const alerts = [
     {
         alertId: 'saveSuccess',
         alertType: AlertTypes.INLINE,
-        clearList: ['saveSuccess', 'saving', 'savingError'],
+        clearList: ['saveSuccess', 'saving', 'savingError', 'twSaveToDiskSuccess'],
         content: (
             <FormattedMessage
                 defaultMessage="Project saved."
@@ -156,14 +156,42 @@ const alerts = [
         maxDisplaySecs: 3
     },
     {
+        alertId: 'twSaveToDiskSuccess',
+        alertType: AlertTypes.INLINE,
+        clearList: ['saveSuccess', 'saving', 'savingError', 'twSaveToDiskSuccess'],
+        content: (
+            <FormattedMessage
+                defaultMessage="Saved to your computer."
+                description="Message indicating that project was successfully saved to the user's disk"
+                id="tw.alerts.savedToDisk"
+            />
+        ),
+        iconURL: successImage,
+        level: AlertLevels.SUCCESS,
+        maxDisplaySecs: 3
+    },
+    {
         alertId: 'saving',
         alertType: AlertTypes.INLINE,
-        clearList: ['saveSuccess', 'saving', 'savingError'],
+        clearList: ['saveSuccess', 'saving', 'savingError', 'twSaveToDiskSuccess'],
         content: (
             <FormattedMessage
                 defaultMessage="Saving project…"
                 description="Message indicating that project is in process of saving"
                 id="gui.alerts.saving"
+            />
+        ),
+        iconSpinner: true,
+        level: AlertLevels.INFO
+    },
+    {
+        alertId: 'twAutosaving',
+        alertType: AlertTypes.INLINE,
+        content: (
+            <FormattedMessage
+                defaultMessage="Creating restore point…"
+                description="Message indicating that a restore point is being created"
+                id="tw.alerts.autosaving"
             />
         ),
         iconSpinner: true,

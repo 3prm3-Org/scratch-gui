@@ -13,6 +13,8 @@ import {
 import {
     showAlertWithTimeout
 } from '../reducers/alerts';
+import {openUsernameModal} from '../reducers/modals';
+import {setUsernameInvalid} from '../reducers/tw';
 
 /*
  * Higher Order Component to manage the connection to the cloud server.
@@ -25,7 +27,8 @@ const cloudManagerHOC = function (WrappedComponent) {
             super(props);
             this.cloudProvider = null;
             bindAll(this, [
-                'handleCloudDataUpdate'
+                'handleCloudDataUpdate',
+                'onInvalidUsername'
             ]);
 
             this.props.vm.on('HAS_CLOUD_DATA_UPDATE', this.handleCloudDataUpdate);
@@ -39,6 +42,15 @@ const cloudManagerHOC = function (WrappedComponent) {
             // TODO need to add cloud provider disconnection logic and cloud data clearing logic
             // when loading a new project e.g. via file upload
             // (and eventually move it out of the vm.clear function)
+
+            // tw: handle cases where we should explicitly close and reconnect() in the same update
+            if (this.shouldReconnect(this.props, prevProps)) {
+                this.disconnectFromCloud();
+                if (this.shouldConnect(this.props)) {
+                    this.connectToCloud();
+                }
+                return;
+            }
 
             if (this.shouldConnect(this.props) && !this.shouldConnect(prevProps)) {
                 this.connectToCloud();
@@ -54,13 +66,10 @@ const cloudManagerHOC = function (WrappedComponent) {
         canUseCloud (props) {
             return !!(props.cloudHost && props.username && props.vm && props.projectId && props.hasCloudPermission);
         }
-        shouldNotModifyCloudData (props) {
-            return (props.hasEverEnteredEditor && !props.canSave);
-        }
         shouldConnect (props) {
             return !this.isConnected() && this.canUseCloud(props) &&
                 props.isShowingWithId && props.vm.runtime.hasCloudData() &&
-                !this.shouldNotModifyCloudData(props);
+                props.canModifyCloudData;
         }
         shouldDisconnect (props, prevProps) {
             return this.isConnected() &&
@@ -68,10 +77,16 @@ const cloudManagerHOC = function (WrappedComponent) {
                     !this.canUseCloud(props) ||
                     !props.vm.runtime.hasCloudData() ||
                     (props.projectId !== prevProps.projectId) ||
-                    (props.username !== prevProps.username) ||
+                    // tw: username changes are handled in "reconnect"
+                    // (props.username !== prevProps.username) ||
                     // Editing someone else's project
-                    this.shouldNotModifyCloudData(props)
+                    !props.canModifyCloudData
                 );
+        }
+        // tw: handle cases where we should explicitly close and reconnect() in the same update
+        shouldReconnect (props, prevProps) {
+            // reconnect when username changes
+            return this.isConnected() && props.username !== prevProps.username;
         }
         isConnected () {
             return this.cloudProvider && !!this.cloudProvider.connection;
@@ -82,6 +97,7 @@ const cloudManagerHOC = function (WrappedComponent) {
                 this.props.vm,
                 this.props.username,
                 this.props.projectId);
+            this.cloudProvider.onInvalidUsername = this.onInvalidUsername;
             this.props.vm.setCloudProvider(this.cloudProvider);
         }
         disconnectFromCloud () {
@@ -99,16 +115,20 @@ const cloudManagerHOC = function (WrappedComponent) {
                 this.connectToCloud();
             }
         }
+        onInvalidUsername () {
+            this.props.onInvalidUsername();
+        }
         render () {
             const {
                 /* eslint-disable no-unused-vars */
+                canModifyCloudData,
                 cloudHost,
                 projectId,
                 username,
                 hasCloudPermission,
-                hasEverEnteredEditor,
                 isShowingWithId,
                 onShowCloudInfo,
+                onInvalidUsername,
                 /* eslint-enable no-unused-vars */
                 vm,
                 ...componentProps
@@ -124,28 +144,40 @@ const cloudManagerHOC = function (WrappedComponent) {
     }
 
     CloudManager.propTypes = {
-        canSave: PropTypes.bool.isRequired,
+        canModifyCloudData: PropTypes.bool.isRequired,
         cloudHost: PropTypes.string,
         hasCloudPermission: PropTypes.bool,
-        hasEverEnteredEditor: PropTypes.bool,
-        isShowingWithId: PropTypes.bool,
+        isShowingWithId: PropTypes.bool.isRequired,
+        onInvalidUsername: PropTypes.func,
         onShowCloudInfo: PropTypes.func,
         projectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         username: PropTypes.string,
         vm: PropTypes.instanceOf(VM).isRequired
     };
 
-    const mapStateToProps = state => {
+    CloudManager.defaultProps = {
+        cloudHost: null,
+        onShowCloudInfo: () => {},
+        username: null
+    };
+
+    const mapStateToProps = (state, ownProps) => {
         const loadingState = state.scratchGui.projectState.loadingState;
         return {
-            hasEverEnteredEditor: state.scratchGui.mode.hasEverEnteredEditor,
             isShowingWithId: getIsShowingWithId(loadingState),
-            projectId: state.scratchGui.projectState.projectId
+            projectId: state.scratchGui.projectState.projectId,
+            hasCloudPermission: state.scratchGui.tw ? state.scratchGui.tw.cloud : false,
+            username: state.scratchGui.tw ? state.scratchGui.tw.username : '',
+            canModifyCloudData: (!state.scratchGui.mode.hasEverEnteredEditor || ownProps.canSave)
         };
     };
 
     const mapDispatchToProps = dispatch => ({
-        onShowCloudInfo: () => showAlertWithTimeout(dispatch, 'cloudInfo')
+        onShowCloudInfo: () => showAlertWithTimeout(dispatch, 'cloudInfo'),
+        onInvalidUsername: () => {
+            dispatch(setUsernameInvalid(true));
+            dispatch(openUsernameModal());
+        }
     });
 
     // Allow incoming props to override redux-provided props. Used to mock in tests.

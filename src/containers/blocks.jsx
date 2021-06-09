@@ -14,7 +14,7 @@ import ExtensionLibrary from './extension-library.jsx';
 import extensionData from '../lib/libraries/extensions/index.jsx';
 import CustomProcedures from './custom-procedures.jsx';
 import errorBoundaryHOC from '../lib/error-boundary-hoc.jsx';
-import {STAGE_DISPLAY_SIZES} from '../lib/layout-constants';
+import {BLOCKS_DEFAULT_SCALE, STAGE_DISPLAY_SIZES} from '../lib/layout-constants';
 import DropAreaHOC from '../lib/drop-area-hoc.jsx';
 import DragConstants from '../lib/drag-constants';
 import defineDynamicBlock from '../lib/define-dynamic-block';
@@ -25,6 +25,7 @@ import {activateColorPicker} from '../reducers/color-picker';
 import {closeExtensionLibrary, openSoundRecorder, openConnectionModal} from '../reducers/modals';
 import {activateCustomProcedures, deactivateCustomProcedures} from '../reducers/custom-procedures';
 import {setConnectionModalExtensionId} from '../reducers/connection-modal';
+import {updateMetrics} from '../reducers/workspace-metrics';
 
 import {
     activateTab,
@@ -33,8 +34,8 @@ import {
 
 const addFunctionListener = (object, property, callback) => {
     const oldFn = object[property];
-    object[property] = function () {
-        const result = oldFn.apply(this, arguments);
+    object[property] = function (...args) {
+        const result = oldFn.apply(this, args);
         callback.apply(this, result);
         return result;
     };
@@ -48,6 +49,7 @@ class Blocks extends React.Component {
     constructor (props) {
         super(props);
         this.ScratchBlocks = VMScratchBlocks(props.vm);
+        window.ScratchBlocks = this.ScratchBlocks;
         bindAll(this, [
             'attachVM',
             'detachVM',
@@ -79,13 +81,16 @@ class Blocks extends React.Component {
         this.ScratchBlocks.recordSoundCallback = this.handleOpenSoundRecorder;
 
         this.state = {
-            workspaceMetrics: {},
             prompt: null
         };
         this.onTargetsUpdate = debounce(this.onTargetsUpdate, 100);
         this.toolboxUpdateQueue = [];
     }
     componentDidMount () {
+        this.props.vm.setCompilerOptions({
+            warpTimer: true
+        });
+
         this.ScratchBlocks.FieldColourSlider.activateEyedropper_ = this.props.onActivateColorPicker;
         this.ScratchBlocks.Procedures.externalProcedureDefCallback = this.props.onActivateCustomProcedures;
         this.ScratchBlocks.ScratchMsgs.setLocale(this.props.locale);
@@ -111,6 +116,27 @@ class Blocks extends React.Component {
         toolboxWorkspace.registerButtonCallback('MAKE_A_VARIABLE', varListButtonCallback(''));
         toolboxWorkspace.registerButtonCallback('MAKE_A_LIST', varListButtonCallback('list'));
         toolboxWorkspace.registerButtonCallback('MAKE_A_PROCEDURE', procButtonCallback);
+        toolboxWorkspace.registerButtonCallback('OPEN_DOCUMENTATION', block => {
+            const CLASS_PREFIX = 'docs-uri-';
+            const svgGroup = block.svgGroup_;
+            const docsURIClass = Array.from(svgGroup.classList).find(i => i.startsWith(CLASS_PREFIX));
+            if (!docsURIClass) {
+                return;
+            }
+            try {
+                const docsURI = docsURIClass.substr(CLASS_PREFIX.length);
+                const url = new URL(docsURI);
+                if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+                    throw new Error('invalid protocol');
+                }
+                window.open(docsURI, '_blank');
+            } catch (e) {
+                log.warn('cannot open docs URI', e);
+            }
+        });
+        toolboxWorkspace.registerButtonCallback('TW_MIGRATION', () => {
+            window.open('https://github.com/TurboWarp/scratch-gui/discussions/100');
+        });
 
         // Store the xml of the toolbox that is actually rendered.
         // This is used in componentDidUpdate instead of prevProps, because
@@ -134,6 +160,11 @@ class Blocks extends React.Component {
         // If locale changes while not visible it will get handled in didUpdate
         if (this.props.isVisible) {
             this.setLocale();
+        }
+
+        // tw: Handle when extensions are added when Blocks isn't mounted
+        for (const category of this.props.vm.runtime._blockInfo) {
+            this.handleExtensionAdded(category);
         }
     }
     shouldComponentUpdate (nextProps, nextState) {
@@ -301,14 +332,17 @@ class Blocks extends React.Component {
     onWorkspaceMetricsChange () {
         const target = this.props.vm.editingTarget;
         if (target && target.id) {
-            const workspaceMetrics = Object.assign({}, this.state.workspaceMetrics, {
-                [target.id]: {
+            // Dispatch updateMetrics later, since onWorkspaceMetricsChange may be (very indirectly)
+            // called from a reducer, i.e. when you create a custom procedure.
+            // TODO: Is this a vehement hack?
+            setTimeout(() => {
+                this.props.updateMetrics({
+                    targetID: target.id,
                     scrollX: this.workspace.scrollX,
                     scrollY: this.workspace.scrollY,
                     scale: this.workspace.scale
-                }
-            });
-            this.setState({workspaceMetrics});
+                });
+            }, 0);
         }
     }
     onScriptGlowOn (data) {
@@ -338,11 +372,11 @@ class Blocks extends React.Component {
             const stageCostumes = stage.getCostumes();
             const targetCostumes = target.getCostumes();
             const targetSounds = target.getSounds();
-            const dynamicBlocksXML = this.props.vm.runtime.getBlocksXML();
-            return makeToolboxXML(target.isStage, target.id, dynamicBlocksXML,
-                targetCostumes[0].name,
-                stageCostumes[0].name,
-                targetSounds.length > 0 ? targetSounds[0].name : ''
+            const dynamicBlocksXML = this.props.vm.runtime.getBlocksXML(target);
+            return makeToolboxXML(false, target.isStage, target.id, dynamicBlocksXML,
+                targetCostumes[targetCostumes.length - 1].name,
+                stageCostumes[stageCostumes.length - 1].name,
+                targetSounds.length > 0 ? targetSounds[targetSounds.length - 1].name : ''
             );
         } catch {
             return null;
@@ -355,7 +389,7 @@ class Blocks extends React.Component {
             this.props.updateToolboxState(toolboxXML);
         }
 
-        if (this.props.vm.editingTarget && !this.state.workspaceMetrics[this.props.vm.editingTarget.id]) {
+        if (this.props.vm.editingTarget && !this.props.workspaceMetrics.targets[this.props.vm.editingTarget.id]) {
             this.onWorkspaceMetricsChange();
         }
 
@@ -381,8 +415,8 @@ class Blocks extends React.Component {
         }
         this.workspace.addChangeListener(this.props.vm.blockListener);
 
-        if (this.props.vm.editingTarget && this.state.workspaceMetrics[this.props.vm.editingTarget.id]) {
-            const {scrollX, scrollY, scale} = this.state.workspaceMetrics[this.props.vm.editingTarget.id];
+        if (this.props.vm.editingTarget && this.props.workspaceMetrics.targets[this.props.vm.editingTarget.id]) {
+            const {scrollX, scrollY, scale} = this.props.workspaceMetrics.targets[this.props.vm.editingTarget.id];
             this.workspace.scrollX = scrollX;
             this.workspace.scrollY = scrollY;
             this.workspace.scale = scale;
@@ -525,6 +559,8 @@ class Blocks extends React.Component {
             onRequestCloseExtensionLibrary,
             onRequestCloseCustomProcedures,
             toolboxXML,
+            updateMetrics: updateMetricsProp,
+            workspaceMetrics,
             ...props
         } = this.props;
         /* eslint-enable no-unused-vars */
@@ -607,15 +643,19 @@ Blocks.propTypes = {
     }),
     stageSize: PropTypes.oneOf(Object.keys(STAGE_DISPLAY_SIZES)).isRequired,
     toolboxXML: PropTypes.string,
+    updateMetrics: PropTypes.func,
     updateToolboxState: PropTypes.func,
-    vm: PropTypes.instanceOf(VM).isRequired
+    vm: PropTypes.instanceOf(VM).isRequired,
+    workspaceMetrics: PropTypes.shape({
+        targets: PropTypes.objectOf(PropTypes.object)
+    })
 };
 
 Blocks.defaultOptions = {
     zoom: {
         controls: true,
         wheel: true,
-        startScale: 0.675
+        startScale: BLOCKS_DEFAULT_SCALE
     },
     grid: {
         spacing: 40,
@@ -654,7 +694,8 @@ const mapStateToProps = state => ({
     locale: state.locales.locale,
     messages: state.locales.messages,
     toolboxXML: state.scratchGui.toolbox.toolboxXML,
-    customProceduresVisible: state.scratchGui.customProcedures.active
+    customProceduresVisible: state.scratchGui.customProcedures.active,
+    workspaceMetrics: state.scratchGui.workspaceMetrics
 });
 
 const mapDispatchToProps = dispatch => ({
@@ -676,6 +717,9 @@ const mapDispatchToProps = dispatch => ({
     },
     updateToolboxState: toolboxXML => {
         dispatch(updateToolbox(toolboxXML));
+    },
+    updateMetrics: metrics => {
+        dispatch(updateMetrics(metrics));
     }
 });
 

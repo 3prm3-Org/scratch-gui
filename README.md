@@ -1,8 +1,36 @@
+scratch-gui modified for use in [TurboWarp](https://turbowarp.org/)
+
+## Setup
+
+See https://github.com/TurboWarp/scratch-gui/wiki/Getting-Started to setup the complete TurboWarp environment.
+
+If you just want to play with the GUI then it's the same process as upstream scratch-gui.
+
+## License
+
+TurboWarp's modifications to Scratch are licensed under the GNU General Public License v3.0. See LICENSE or https://www.gnu.org/licenses/ for details.
+
+Original license for scratch-gui:
+
+```
+Copyright (c) 2016, Massachusetts Institute of Technology
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+<!--
+
 # scratch-gui
 #### Scratch GUI is a set of React components that comprise the interface for creating and running Scratch 3.0 projects
-
-[![Build Status](https://travis-ci.com/LLK/scratch-gui.svg?token=Yfq2ryN1BwaxDME69Lnc&branch=master)](https://travis-ci.com/LLK/scratch-gui)
-[![Greenkeeper badge](https://badges.greenkeeper.io/LLK/scratch-gui.svg)](https://greenkeeper.io/)
 
 ## Installation
 This requires you to have Git and Node.js installed.
@@ -17,6 +45,8 @@ git clone https://github.com/LLK/scratch-gui.git
 cd scratch-gui
 npm install
 ```
+
+**You may want to add `--depth=1` to the `git clone` command because there are some [large files in the git repository history](https://github.com/LLK/scratch-gui/issues/5140).**
 
 ## Getting started
 Running the project requires Node.js to be installed.
@@ -49,7 +79,7 @@ Here's how to link your local `scratch-gui` code to another project's `node_modu
 2. From the top level of each repository (such as `scratch-www`) that depends on `scratch-gui`:
     1. Make sure you have run `npm install`
     2. Run `npm link scratch-gui`
-    3. Build or run the repositoriy
+    3. Build or run the repository
 
 #### Using `npm run watch`
 
@@ -74,7 +104,7 @@ See [jest cli docs](https://facebook.github.io/jest/docs/en/cli.html#content) fo
 
 *NOTE: If you're a windows user, please run these scripts in Windows `cmd.exe`  instead of Git Bash/MINGW64.*
 
-Before running any test, make sure you have run `npm install` from this (scratch-gui) repository's top level.
+Before running any tests, make sure you have run `npm install` from this (scratch-gui) repository's top level.
 
 #### Main testing command
 
@@ -189,10 +219,74 @@ npm install  --no-optional --save-dev react-responsive@^5.0.0
 
 Further reading: [Stack Overflow](https://stackoverflow.com/questions/46602286/npm-requires-a-peer-of-but-all-peers-are-in-package-json-and-node-modules)
 
+## Troubleshooting
+
+If you run into npm install errors, try these steps:
+1. run `npm cache clean --force`
+2. Delete the node_modules directory
+3. Delete package-lock.json
+4. run `npm install` again
 
 ## Publishing to GitHub Pages
 You can publish the GUI to github.io so that others on the Internet can view it.
 [Read the wiki for a step-by-step guide.](https://github.com/LLK/scratch-gui/wiki/Publishing-to-GitHub-Pages)
 
+## Understanding the project state machine
+
+Since so much code throughout scratch-gui depends on the state of the project, which goes through many different phases of loading, displaying and saving, we created a "finite state machine" to make it clear which state it is in at any moment. This is contained in the file src/reducers/project-state.js .
+
+It can be hard to understand the code in src/reducers/project-state.js . There are several types of data and functions used, which relate to each other:
+
+### Loading states
+
+These include state constant strings like:
+
+* `NOT_LOADED` (the default state),
+* `ERROR`,
+* `FETCHING_WITH_ID`,
+* `LOADING_VM_WITH_ID`,
+* `REMIXING`,
+* `SHOWING_WITH_ID`,
+* `SHOWING_WITHOUT_ID`,
+* etc.
+
+### Transitions
+
+These are names for the action which causes a state change. Some examples are:
+
+* `START_FETCHING_NEW`,
+* `DONE_FETCHING_WITH_ID`,
+* `DONE_LOADING_VM_WITH_ID`,
+* `SET_PROJECT_ID`,
+* `START_AUTO_UPDATING`,
+
+### How transitions relate to loading states
+
+As this diagram of the project state machine shows, various transition actions can move us from one loading state to another:
+
+![Project state diagram](docs/project_state_diagram.svg)
+
+_Note: for clarity, the diagram above excludes states and transitions relating to error handling._
+
+#### Example
+
+Here's an example of how states transition.
+
+Suppose a user clicks on a project, and the page starts to load with url https://scratch.mit.edu/projects/123456 .
+
+Here's what will happen in the project state machine:
+
+![Project state example](docs/project_state_example.png)
+
+1. When the app first mounts, the project state is `NOT_LOADED`.
+2. The `SET_PROJECT_ID` redux action is dispatched (from src/lib/project-fetcher-hoc.jsx), with `projectId` set to `123456`. This transitions the state from `NOT_LOADED` to `FETCHING_WITH_ID`.
+3. The `FETCHING_WITH_ID` state. In src/lib/project-fetcher-hoc.jsx, the `projectId` value `123456` is used to request the data for that project from the server.
+4. When the server responds with the data, src/lib/project-fetcher-hoc.jsx dispatches the `DONE_FETCHING_WITH_ID` action, with `projectData` set. This transitions the state from `FETCHING_WITH_ID` to `LOADING_VM_WITH_ID`.
+5. The `LOADING_VM_WITH_ID` state. In src/lib/vm-manager-hoc.jsx, we load the `projectData` into Scratch's virtual machine ("the vm").
+6. When loading is done, src/lib/vm-manager-hoc.jsx dispatches the `DONE_LOADING_VM_WITH_ID` action. This transitions the state from `LOADING_VM_WITH_ID` to `SHOWING_WITH_ID`
+7. The `SHOWING_WITH_ID` state. Now the project appears normally and is playable and editable.
+
 ## Donate
 We provide [Scratch](https://scratch.mit.edu) free of charge, and want to keep it that way! Please consider making a [donation](https://secure.donationpay.org/scratchfoundation/) to support our continued engineering, design, community, and resource development efforts. Donations of any size are appreciated. Thank you!
+
+-->

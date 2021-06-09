@@ -1,12 +1,12 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import classNames from 'classnames';
-import {FormattedMessage, injectIntl} from 'react-intl';
+import {FormattedMessage} from 'react-intl';
 import UserAvatar from './user-avatar.jsx';
 
 import styles from './author-info.css';
 
-const AuthorInfo = ({
+const ActualAuthorInfo = ({
     className,
     imageUrl,
     projectTitle,
@@ -25,9 +25,9 @@ const AuthorInfo = ({
             imageUrl={imageUrl}
         />
         <div className={styles.titleAuthor}>
-            <span className={styles.projectTitle}>
+            <h1 className={styles.projectTitle}>
                 {projectTitle}
-            </span>
+            </h1>
             <div>
                 <span className={styles.usernameLine}>
                     <FormattedMessage
@@ -44,7 +44,7 @@ const AuthorInfo = ({
     </div>
 );
 
-AuthorInfo.propTypes = {
+ActualAuthorInfo.propTypes = {
     className: PropTypes.string,
     imageUrl: PropTypes.string,
     projectTitle: PropTypes.string,
@@ -52,4 +52,20 @@ AuthorInfo.propTypes = {
     username: PropTypes.oneOfType([PropTypes.string, PropTypes.bool])
 };
 
-export default injectIntl(AuthorInfo);
+const AuthorInfo = ({projectId, ...props}) => (
+    projectId ? (
+        <a
+            className={styles.link}
+            href={`https://scratch.mit.edu/projects/${projectId}`}
+            target="_blank"
+            rel="noreferrer"
+        >
+            <ActualAuthorInfo {...props} />
+        </a>
+    ) : <ActualAuthorInfo {...props} />
+);
+AuthorInfo.propTypes = {
+    projectId: PropTypes.string
+};
+
+export default AuthorInfo;

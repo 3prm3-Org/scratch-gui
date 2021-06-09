@@ -1,6 +1,8 @@
 import ScratchStorage from 'scratch-storage';
 
 import defaultProject from './default-project';
+import missingProject from './tw-missing-project';
+import log from './log';
 
 /**
  * Wrapper for ScratchStorage which adds default web sources.
@@ -26,10 +28,6 @@ class Storage extends ScratchStorage {
             // asset store uses the assetId as part of the create URI.
             this.getAssetCreateConfig.bind(this),
             this.getAssetCreateConfig.bind(this)
-        );
-        this.addWebStore(
-            [this.AssetType.Sound],
-            asset => `static/extension-assets/scratch3_music/${asset.assetId}.${asset.dataFormat}`
         );
     }
     setProjectHost (projectHost) {
@@ -79,6 +77,30 @@ class Storage extends ScratchStorage {
             asset.data,
             asset.id
         ));
+        const missingProjectAssets = missingProject(this.translator);
+        missingProjectAssets.forEach(asset => this.builtinHelper._store(
+            this.AssetType[asset.assetType],
+            this.DataFormat[asset.dataFormat],
+            asset.data,
+            asset.id
+        ));
+    }
+    async load (assetType, asset, assetFormat) {
+        let error;
+        for (let i = 0; i < 3; i++) {
+            try {
+                return await super.load(assetType, asset, assetFormat);
+            } catch (e) {
+                // Store the first error so that we can re-throw it later if needed
+                if (i === 0) {
+                    error = e;
+                }
+                log.warn(`Attempt to get ${asset} failed, trying again`, e);
+                // Wait a little bit before trying again
+                await new Promise(resolve => setTimeout(resolve, (i + 1) * 1000 * Math.random()));
+            }
+        }
+        throw new Error(`Cannot fetch asset: ${error}`);
     }
 }
 

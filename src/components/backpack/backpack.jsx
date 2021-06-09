@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
-import {FormattedMessage} from 'react-intl';
+import {FormattedMessage, defineMessages, injectIntl, intlShape} from 'react-intl';
 import DragConstants from '../../lib/drag-constants';
 import {ComingSoonTooltip} from '../coming-soon/coming-soon.jsx';
 import SpriteSelectorItem from '../../containers/sprite-selector-item.jsx';
@@ -17,6 +17,29 @@ const dragTypeMap = { // Keys correspond with the backpack-server item types
     sprite: DragConstants.BACKPACK_SPRITE
 };
 
+const labelMap = defineMessages({
+    costume: {
+        id: 'gui.backpack.costumeLabel',
+        defaultMessage: 'costume',
+        description: 'Label for costume backpack item'
+    },
+    sound: {
+        id: 'gui.backpack.soundLabel',
+        defaultMessage: 'sound',
+        description: 'Label for sound backpack item'
+    },
+    script: {
+        id: 'gui.backpack.scriptLabel',
+        defaultMessage: 'script',
+        description: 'Label for script backpack item'
+    },
+    sprite: {
+        id: 'gui.backpack.spriteLabel',
+        defaultMessage: 'sprite',
+        description: 'Label for sprite backpack item'
+    }
+});
+
 const Backpack = ({
     blockDragOver,
     containerRef,
@@ -24,10 +47,12 @@ const Backpack = ({
     dragOver,
     error,
     expanded,
+    intl,
     loading,
     showMore,
     onToggle,
     onDelete,
+    onRename,
     onMouseEnter,
     onMouseLeave,
     onMore
@@ -94,10 +119,12 @@ const Backpack = ({
                                         dragType={dragTypeMap[item.type]}
                                         id={item.id}
                                         key={item.id}
-                                        name={item.type}
+                                        name={intl.formatMessage(labelMap[item.type])}
                                         selected={false}
                                         onClick={noop}
                                         onDeleteButtonClick={onDelete}
+                                        // Currently, renaming sprites is not supported.
+                                        onRenameButtonClick={item.type === 'sprite' ? null : onRename}
                                     />
                                 ))}
                                 {showMore && (
@@ -141,8 +168,10 @@ Backpack.propTypes = {
     dragOver: PropTypes.bool,
     error: PropTypes.bool,
     expanded: PropTypes.bool,
+    intl: intlShape,
     loading: PropTypes.bool,
     onDelete: PropTypes.func,
+    onRename: PropTypes.func,
     onMore: PropTypes.func,
     onMouseEnter: PropTypes.func,
     onMouseLeave: PropTypes.func,
@@ -161,4 +190,4 @@ Backpack.defaultProps = {
     onToggle: null
 };
 
-export default Backpack;
+export default injectIntl(Backpack);

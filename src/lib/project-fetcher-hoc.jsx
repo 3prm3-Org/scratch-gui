@@ -23,6 +23,10 @@ import {
 import log from './log';
 import storage from './storage';
 
+import {MISSING_PROJECT_ID} from './tw-missing-project';
+import VM from 'scratch-vm';
+import * as progressMonitor from '../components/loader/tw-progress-monitor';
+
 /* Higher Order Component to provide behavior for loading projects by id. If
  * there's no id, the default project is loaded.
  * @param {React.Component} WrappedComponent component to receive projectData prop
@@ -68,8 +72,47 @@ const ProjectFetcherHOC = function (WrappedComponent) {
             }
         }
         fetchProject (projectId, loadingState) {
-            return storage
-                .load(storage.AssetType.Project, projectId, storage.DataFormat.JSON)
+            // tw: clear and stop the VM before fetching
+            // these will also happen later after the project is fetched, but fetching may take a while and
+            // the project shouldn't be running while fetching the new project
+            this.props.vm.clear();
+            this.props.vm.stop();
+
+            let assetPromise;
+            // In case running in node...
+            let projectUrl = typeof URLSearchParams === 'undefined' ?
+                null :
+                new URLSearchParams(location.search).get('project_url');
+            if (projectUrl) {
+                if (!projectUrl.startsWith('http:') && !projectUrl.startsWith('https:')) {
+                    projectUrl = `https://${projectUrl}`;
+                }
+                assetPromise = progressMonitor.fetchWithProgress(projectUrl)
+                    .then(r => {
+                        if (!r.ok) {
+                            throw new Error(`Request returned status ${r.status}`);
+                        }
+                        return r.arrayBuffer();
+                    })
+                    .then(buffer => ({data: buffer}));
+            } else {
+                assetPromise = storage
+                    .load(storage.AssetType.Project, projectId, storage.DataFormat.JSON);
+            }
+
+            return assetPromise
+                .then(projectAsset => {
+                    // tw: If the project data appears to be HTML, then the result is probably an nginx 404 page,
+                    // and the "missing project" project should be loaded instead.
+                    // See: https://projects.scratch.mit.edu/9999999999999999999999
+                    if (projectAsset && projectAsset.data) {
+                        const firstChar = projectAsset.data[0];
+                        if (firstChar === '<' || firstChar === '<'.charCodeAt(0)) {
+                            return storage.load(storage.AssetType.Project, MISSING_PROJECT_ID, storage.DataFormat.JSON);
+                        }
+                    }
+                    return projectAsset;
+                })
                 .then(projectAsset => {
                     if (projectAsset) {
                         this.props.onFetchedProjectData(projectAsset.data, loadingState);
@@ -127,7 +170,8 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         projectHost: PropTypes.string,
         projectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         reduxProjectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-        setProjectId: PropTypes.func
+        setProjectId: PropTypes.func,
+        vm: PropTypes.instanceOf(VM)
     };
     ProjectFetcherComponent.defaultProps = {
         assetHost: 'https://assets.scratch.mit.edu',
@@ -140,7 +184,8 @@ const ProjectFetcherHOC = function (WrappedComponent) {
         isLoadingProject: getIsLoading(state.scratchGui.projectState.loadingState),
         isShowingProject: getIsShowingProject(state.scratchGui.projectState.loadingState),
         loadingState: state.scratchGui.projectState.loadingState,
-        reduxProjectId: state.scratchGui.projectState.projectId
+        reduxProjectId: state.scratchGui.projectState.projectId,
+        vm: state.scratchGui.vm
     });
     const mapDispatchToProps = dispatch => ({
         onActivateTab: tab => dispatch(activateTab(tab)),

@@ -3,17 +3,12 @@
  * Utility functions for handling tutorial images in multiple languages
  */
 
-import {enImages as defaultImages} from './en-steps.js';
-
+const defaultImages = {};
 let savedImages = {};
 let savedLocale = '';
 
-const loadSpanish = () =>
-    import(/* webpackChunkName: "es-steps" */ './es-steps.js')
-        .then(({esImages: imageData}) => imageData);
-
 const translations = {
-    es: () => loadSpanish()
+
 };
 
 const loadImageData = locale => {

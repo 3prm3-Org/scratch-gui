@@ -22,6 +22,8 @@
     font-weight: bold;
     text-overflow: ellipsis;
     white-space: nowrap;
+    margin: 0;
+    padding: 0;
 }
 
 .username-line {
@@ -36,4 +38,15 @@
 
 .username {
     font-weight: bold;
+}
+
+.link {
+    text-decoration: none;
+    color: $ui-white !important;
+}
+.link:hover {
+    text-decoration: underline;
+}
+.link .author-info {
+    cursor: pointer;
 }

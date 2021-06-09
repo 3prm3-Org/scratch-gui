@@ -8,8 +8,8 @@ import {connect} from 'react-redux';
 import {STAGE_DISPLAY_SIZES} from '../lib/layout-constants';
 import {getEventXY} from '../lib/touch-utils';
 import VideoProvider from '../lib/video/video-provider';
-import {SVGRenderer as V2SVGAdapter} from 'scratch-svg-renderer';
 import {BitmapAdapter as V2BitmapAdapter} from 'scratch-svg-renderer';
+import twStageSize from '../lib/tw-stage-size';
 
 import StageComponent from '../components/stage/stage.jsx';
 
@@ -17,6 +17,8 @@ import {
     activateColorPicker,
     deactivateColorPicker
 } from '../reducers/color-picker';
+
+import {setHighQualityPenState} from '../reducers/tw';
 
 const colorPickerRadius = 20;
 const dragThreshold = 3; // Same as the block drag threshold
@@ -36,6 +38,7 @@ class Stage extends React.Component {
             'onStartDrag',
             'onStopDrag',
             'onWheel',
+            'onContextMenu',
             'updateRect',
             'questionListener',
             'setDragCanvas',
@@ -57,7 +60,15 @@ class Stage extends React.Component {
             this.canvas = this.renderer.canvas;
         } else {
             this.canvas = document.createElement('canvas');
-            this.renderer = new Renderer(this.canvas);
+            this.renderer = new Renderer(
+                this.canvas,
+                -twStageSize.width / 2,
+                twStageSize.width / 2,
+                -twStageSize.height / 2,
+                twStageSize.height / 2
+            );
+            this.props.vm.runtime.stageWidth = twStageSize.width;
+            this.props.vm.runtime.stageHeight = twStageSize.height;
             this.props.vm.attachRenderer(this.renderer);
 
             // Only attach a video provider once because it is stateful
@@ -68,8 +79,10 @@ class Stage extends React.Component {
             // possible to use CSS to style the canvas to have a different
             // default color
             this.props.vm.renderer.draw();
+
+            // tw: handle changes to high quality pen
+            this.props.vm.renderer.on('UseHighQualityRenderChanged', this.props.onHighQualityPenChanged);
         }
-        this.props.vm.attachV2SVGAdapter(new V2SVGAdapter());
         this.props.vm.attachV2BitmapAdapter(new V2BitmapAdapter());
     }
     componentDidMount () {
@@ -83,6 +96,9 @@ class Stage extends React.Component {
             this.props.isColorPicking !== nextProps.isColorPicking ||
             this.state.colorInfo !== nextState.colorInfo ||
             this.props.isFullScreen !== nextProps.isFullScreen ||
+            // tw: update when dimensions or isWindowFullScreen changes
+            this.props.isWindowFullScreen !== nextProps.isWindowFullScreen ||
+            this.props.dimensions !== nextProps.dimensions ||
             this.state.question !== nextState.question ||
             this.props.micIndicator !== nextProps.micIndicator ||
             this.props.isStarted !== nextProps.isStarted;
@@ -128,6 +144,7 @@ class Stage extends React.Component {
         canvas.addEventListener('mousedown', this.onMouseDown);
         canvas.addEventListener('touchstart', this.onMouseDown);
         canvas.addEventListener('wheel', this.onWheel);
+        canvas.addEventListener('contextmenu', this.onContextMenu);
     }
     detachMouseEvents (canvas) {
         document.removeEventListener('mousemove', this.onMouseMove);
@@ -137,6 +154,7 @@ class Stage extends React.Component {
         canvas.removeEventListener('mousedown', this.onMouseDown);
         canvas.removeEventListener('touchstart', this.onMouseDown);
         canvas.removeEventListener('wheel', this.onWheel);
+        canvas.removeEventListener('contextmenu', this.onContextMenu);
     }
     attachRectEvents () {
         window.addEventListener('resize', this.updateRect);
@@ -164,6 +182,10 @@ class Stage extends React.Component {
         };
     }
     handleDoubleClick (e) {
+        // tw: Disable editing target changing in certain circumstances to avoid lag
+        if (this.props.disableEditingTargetChange) {
+            return;
+        }
         const {x, y} = getEventXY(e);
         // Set editing target from cursor position, if clicking on a sprite.
         const mousePosition = [x - this.rect.left, y - this.rect.top];
@@ -225,6 +247,7 @@ class Stage extends React.Component {
         });
         const data = {
             isDown: false,
+            button: e.button,
             x: x - this.rect.left,
             y: y - this.rect.top,
             canvasWidth: this.rect.width,
@@ -275,6 +298,7 @@ class Stage extends React.Component {
             }
             const data = {
                 isDown: true,
+                button: e.button,
                 x: mousePosition[0],
                 y: mousePosition[1],
                 canvasWidth: this.rect.width,
@@ -298,31 +322,42 @@ class Stage extends React.Component {
         };
         this.props.vm.postIOData('mouseWheel', data);
     }
+    onContextMenu (e) {
+        if (this.props.vm.runtime.ioDevices.mouse.usesRightClickDown) {
+            e.preventDefault();
+        }
+    }
     cancelMouseDownTimeout () {
         if (this.state.mouseDownTimeoutId !== null) {
             clearTimeout(this.state.mouseDownTimeoutId);
         }
         this.setState({mouseDownTimeoutId: null});
     }
-    drawDragCanvas (drawableData) {
+    /**
+     * Initialize the position of the "dragged sprite" canvas
+     * @param {DrawableExtraction} drawableData The data returned from renderer.extractDrawableScreenSpace
+     * @param {number} x The x position of the initial drag event
+     * @param {number} y The y position of the initial drag event
+     */
+    drawDragCanvas (drawableData, x, y) {
         const {
-            data,
-            width,
-            height,
-            x,
-            y
+            imageData,
+            x: boundsX,
+            y: boundsY,
+            width: boundsWidth,
+            height: boundsHeight
         } = drawableData;
-        this.dragCanvas.width = width;
-        this.dragCanvas.height = height;
-        // Need to convert uint8array from WebGL readPixels into Uint8ClampedArray
-        // for ImageData constructor. Shares underlying buffer, so it is fast.
-        const imageData = new ImageData(
-            new Uint8ClampedArray(data.buffer), width, height);
+        this.dragCanvas.width = imageData.width;
+        this.dragCanvas.height = imageData.height;
+        // On high-DPI devices, the canvas size in layout-pixels is not equal to the size of the extracted data.
+        this.dragCanvas.style.width = `${boundsWidth}px`;
+        this.dragCanvas.style.height = `${boundsHeight}px`;
+
         this.dragCanvas.getContext('2d').putImageData(imageData, 0, 0);
         // Position so that pick location is at (0, 0) so that  positionDragCanvas()
         // can use translation to move to mouse position smoothly.
-        this.dragCanvas.style.left = `${-x}px`;
-        this.dragCanvas.style.top = `${-y}px`;
+        this.dragCanvas.style.left = `${boundsX - x}px`;
+        this.dragCanvas.style.top = `${boundsY - y}px`;
         this.dragCanvas.style.display = 'block';
     }
     clearDragCanvas () {
@@ -349,19 +384,23 @@ class Stage extends React.Component {
         // Dragging always brings the target to the front
         target.goToFront();
 
-        // Extract the drawable art
-        const drawableData = this.renderer.extractDrawable(drawableId, x, y);
+        const [scratchMouseX, scratchMouseY] = this.getScratchCoords(x, y);
+        const offsetX = target.x - scratchMouseX;
+        const offsetY = -(target.y + scratchMouseY);
 
         this.props.vm.startDrag(targetId);
         this.setState({
             isDragging: true,
             dragId: targetId,
-            dragOffset: drawableData.scratchOffset
+            dragOffset: [offsetX, offsetY]
         });
         if (this.props.useEditorDragStyle) {
-            this.drawDragCanvas(drawableData);
+            // Extract the drawable art
+            const drawableData = this.renderer.extractDrawableScreenSpace(drawableId);
+            this.drawDragCanvas(drawableData, x, y);
             this.positionDragCanvas(x, y);
             this.props.vm.postSpriteInfo({visible: false});
+            this.props.vm.renderer.draw();
         }
     }
     onStopDrag (mouseX, mouseY) {
@@ -387,12 +426,9 @@ class Stage extends React.Component {
             }
             this.props.vm.postSpriteInfo(spriteInfo);
             // Then clear the dragging canvas and stop drag (potentially slow if selecting sprite)
-            setTimeout(() => {
-                this.clearDragCanvas();
-                setTimeout(() => {
-                    commonStopDragActions();
-                }, 30);
-            }, 30);
+            this.clearDragCanvas();
+            commonStopDragActions();
+            this.props.vm.renderer.draw();
         } else {
             commonStopDragActions();
         }
@@ -404,6 +440,7 @@ class Stage extends React.Component {
         const {
             vm, // eslint-disable-line no-unused-vars
             onActivateColorPicker, // eslint-disable-line no-unused-vars
+            disableEditingTargetChange, // eslint-disable-line no-unused-vars
             ...props
         } = this.props;
         return (
@@ -421,8 +458,17 @@ class Stage extends React.Component {
 }
 
 Stage.propTypes = {
+    // tw: High quality pen properties
+    onHighQualityPenChanged: PropTypes.func,
+    highQualityPen: PropTypes.bool,
+    // tw: Disable editing target changing in certain circumstances to avoid lag
+    disableEditingTargetChange: PropTypes.bool,
     isColorPicking: PropTypes.bool,
     isFullScreen: PropTypes.bool.isRequired,
+    isPlayerOnly: PropTypes.bool,
+    // tw: update when dimensions or isWindowFullScreen changes
+    isWindowFullScreen: PropTypes.bool,
+    dimensions: PropTypes.arrayOf(PropTypes.number),
     isStarted: PropTypes.bool,
     micIndicator: PropTypes.bool,
     onActivateColorPicker: PropTypes.func,
@@ -437,8 +483,21 @@ Stage.defaultProps = {
 };
 
 const mapStateToProps = state => ({
+    // tw: High quality pen property
+    highQualityPen: state.scratchGui.tw.highQualityPen,
+    // tw: Disable editing target changing in certain circumstances to avoid lag
+    disableEditingTargetChange: (
+        state.scratchGui.mode.isFullScreen ||
+        state.scratchGui.mode.isEmbedded ||
+        state.scratchGui.mode.isPlayerOnly
+    ),
     isColorPicking: state.scratchGui.colorPicker.active,
-    isFullScreen: state.scratchGui.mode.isFullScreen,
+    // tw: embed is always considered fullscreen
+    isFullScreen: state.scratchGui.mode.isFullScreen || state.scratchGui.mode.isEmbedded,
+    isPlayerOnly: state.scratchGui.mode.isPlayerOnly,
+    // tw: update when dimensions or isWindowFullScreen changes
+    isWindowFullScreen: state.scratchGui.tw.isWindowFullScreen,
+    dimensions: state.scratchGui.tw.dimensions,
     isStarted: state.scratchGui.vmStatus.started,
     micIndicator: state.scratchGui.micIndicator,
     // Do not use editor drag style in fullscreen or player mode.
@@ -446,6 +505,8 @@ const mapStateToProps = state => ({
 });
 
 const mapDispatchToProps = dispatch => ({
+    // tw: handler for syncing high quality pen option changes
+    onHighQualityPenChanged: enabled => dispatch(setHighQualityPenState(enabled)),
     onActivateColorPicker: () => dispatch(activateColorPicker()),
     onDeactivateColorPicker: color => dispatch(deactivateColorPicker(color))
 });
